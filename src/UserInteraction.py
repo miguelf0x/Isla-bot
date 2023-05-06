@@ -4,7 +4,6 @@ import json
 import threading
 import interactions
 
-
 COMMANDS = ["weather", "help", "man"]
 
 HELP_TEXT = (
@@ -110,7 +109,6 @@ async def send_man_embed(ctx, command: str):
 
 
 async def send_weather_embed(ctx, data):
-
     print(json.dumps(data))
 
     try:
@@ -128,56 +126,58 @@ async def send_weather_embed(ctx, data):
         color=0x5865F2,
     )
 
-    location_text = f"Location: {airport_location}"
+    location_text = f"{airport_location}"
     elevation = data.get("elevation")
     if elevation is not None:
         elevation_ft = elevation.get("feet")
         elevation_m = elevation.get("meters")
 
-        location_text += "\nElevation: "
+        location_text += "\nElevation "
         if elevation_ft is not None:
             location_text += f" {elevation_ft} ft"
         if elevation_m is not None:
             location_text += f" [{elevation_m} m]"
 
-    embedding.add_field("Location", location_text, inline=False)
+    embedding.add_field("Location", location_text, inline=True)
 
-    observation_text = ""
+    timediff_text = ""
     observation_date_raw = data.get("observed")
-    observation_date_formatted = datetime.datetime.strptime(observation_date_raw,
-                                                            "%Y-%m-%dT%H:%M:%S")
+    observ_date_format = datetime.datetime.strptime(observation_date_raw, "%Y-%m-%dT%H:%M:%S")
     current_utc_date = datetime.datetime.utcnow()
-    date_diff = current_utc_date - observation_date_formatted
+    date_diff = current_utc_date - observ_date_format
     diff_hours = divmod(date_diff.seconds, 3600)
     diff_minutes = divmod(diff_hours[1], 60)
     diff_seconds = diff_minutes[1]
     diff_minutes = diff_minutes[0]
     diff_hours = diff_hours[0]
 
-    if diff_hours != 0:
-        observation_text += f"[{diff_hours} h, "
-    if observation_text == "":
-        observation_text += f"[{diff_minutes} m, "
-    else:
-        observation_text += f"{diff_minutes} m, "
-    observation_text += f"{diff_seconds} s back]"
+    observation_date_text = f"{observ_date_format:%d}.{observ_date_format:%m}.{observ_date_format:%Y} " \
+                            f"{observ_date_format:%H}:{observ_date_format:%M}"
 
-    embedding.add_field("Observed at", f"{data.get('observed')} {observation_text}", inline=False)
+    if diff_hours != 0:
+        timediff_text += f"[{diff_hours} h, "
+    if timediff_text == "":
+        timediff_text += f"[{diff_minutes} m, "
+    else:
+        timediff_text += f"{diff_minutes} m, "
+    timediff_text += f"{diff_seconds} s back]"
+
+    embedding.add_field("Observed ", f"{observation_date_text} UTC\n{timediff_text}", inline=True)
 
     wind = data.get("wind")
-    wind_text = f"{wind.get('degrees')}° at {wind.get('speed_kts')} kts [{wind.get('speed_mps')} m/s]"
-    embedding.add_field("Wind", wind_text, inline=False)
+    wind_text = f"{wind.get('degrees')}°, {wind.get('speed_kts')} kts [{wind.get('speed_mps')} m/s]"
+    embedding.add_field("Wind", wind_text, inline=True)
 
     visibility = data.get("visibility")
-    visibility_text = f"{visibility.get('miles')} miles [{visibility.get('meters')} m]"
-    embedding.add_field("Visibility", visibility_text, inline=False)
+    visibility_text = f"{visibility.get('miles')} miles\n[{visibility.get('meters')} m]"
+    embedding.add_field("Visibility", visibility_text, inline=True)
 
     conditions = data.get("conditions")
     if conditions is not None:
         conditions_text = ""
         for i in conditions:
             conditions_text += i.get("text")
-        embedding.add_field("Conditions", conditions_text, inline=False)
+        embedding.add_field("Conditions", conditions_text, inline=True)
     else:
         print("[INFO] No conditions were received")
 
@@ -231,7 +231,7 @@ async def send_weather_embed(ctx, data):
                     if ceiling_base_m is not None:
                         ceiling_text += f" [{ceiling_base_m} m]"
 
-        embedding.add_field("Ceiling", ceiling_text, inline=False)
+        embedding.add_field("Ceiling", ceiling_text, inline=True)
     else:
         print("[INFO] No ceiling were received")
 
@@ -264,7 +264,7 @@ async def send_weather_embed(ctx, data):
                     if clouds_base_m is not None:
                         clouds_text += f" [{clouds_base_m} m]"
 
-        embedding.add_field("Clouds", clouds_text, inline=False)
+        embedding.add_field("Clouds", clouds_text, inline=True)
     else:
         print("[INFO] No clouds were received")
 
@@ -274,17 +274,17 @@ async def send_weather_embed(ctx, data):
     if temperature is None:
         temp_text += "Temperature unknown"
     else:
-        temp_text += f"Temperature {temperature.get('celsius')}℃"
+        temp_text += f"Current {temperature.get('celsius')}℃"
 
     dewpoint = data.get("dewpoint")
     if dewpoint is not None:
-        temp_text += f", dewpoint {dewpoint.get('celsius')}℃"
+        temp_text += f"\nDewpoint {dewpoint.get('celsius')}℃"
 
     windchill = data.get("windchill")
     if windchill is not None:
         temp_text += f"\nWindchill {windchill.get('celsius')}℃"
 
-    embedding.add_field("Temperature", temp_text, inline=False)
+    embedding.add_field("Temperature", temp_text, inline=True)
 
     barometer_text = ""
     barometer = data.get("barometer")
@@ -296,7 +296,7 @@ async def send_weather_embed(ctx, data):
     if barometer_hpa is not None:
         barometer_text += f" [{barometer_hpa} hPa]"
 
-    embedding.add_field("Barometer", barometer_text, inline=False)
+    embedding.add_field("Barometer", barometer_text, inline=True)
 
     raw_text = data.get("raw_text")
     report_info = ""
@@ -317,11 +317,10 @@ async def send_weather_embed(ctx, data):
 
     if "AO1" in raw_text:
         report_info += "Automated station without precipitation discriminator"
-
-    if "AO2" in raw_text:
+    elif "AO2" in raw_text:
         report_info += "Automated station with precipitation discriminator"
 
     if report_info != "":
-        embedding.add_field("Report info", report_info, inline=False)
+        embedding.add_field("Report info", report_info, inline=True)
 
     await __waitable(lambda: ctx.send(embeds=embedding))
